@@ -54,6 +54,30 @@ public:
     void fillPosition(const UIWidgetPtr& anchoredWidget, const Position& hookedPosition);
     void centerInPosition(const UIWidgetPtr& anchoredWidget, const Position& hookedPosition);
 
+    // Satellite / Surface View mode — used exclusively by the Cyclopedia Map.
+    // The HUD minimap widget is never put in satellite mode.
+    void setSatelliteMode(bool enabled)
+    {
+        if (m_satelliteMode == enabled)
+            return;
+        m_satelliteMode = enabled;
+        repaint();
+    }
+    bool isSatelliteMode() const { return m_satelliteMode; }
+
+    // Static Map View mode — when enabled, drawSelf() uses pre-built minimap-* image
+    // chunks (from SatelliteMap) for Map View instead of the live in-game minimap.
+    // Falls back to the live minimap when no static chunks exist for the current floor.
+    // Only set on the Cyclopedia map widget — the HUD minimap is unaffected.
+    void setUseStaticMinimap(bool enabled)
+    {
+        if (m_useStaticMinimap == enabled)
+            return;
+        m_useStaticMinimap = enabled;
+        repaint();
+    }
+    bool isUseStaticMinimap() const { return m_useStaticMinimap; }
+
 protected:
     virtual void onZoomChange(int zoom, int oldZoom);
     virtual void onCameraPositionChange(const Position& position, const Position& oldPosition);
@@ -66,4 +90,6 @@ private:
     int8_t m_zoom{ 0 };
     int8_t m_minZoom{ -5 };
     int8_t m_maxZoom{ 5 };
+    bool m_satelliteMode{ false };
+    bool m_useStaticMinimap{ false };
 };
