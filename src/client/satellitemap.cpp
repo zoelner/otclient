@@ -357,6 +357,12 @@ TexturePtr SatelliteMap::loadChunkTexture(const std::string& path)
     if (!image)
         return nullptr;
 
+    if (image->getWidth() != 512 || image->getHeight() != 512) {
+        g_logger.error("SatelliteMap: chunk '{}' has unexpected size {}x{} (expected 512x512), skipping",
+                       path, image->getWidth(), image->getHeight());
+        return nullptr;
+    }
+
     return std::make_shared<Texture>(image);
 }
 
