@@ -65,6 +65,18 @@ public:
     }
     bool isSatelliteMode() const { return m_satelliteMode; }
 
+    // Controls the opacity of background (non-target) floors in satellite composite view.
+    // 1.0 = all floors fully visible (default); 0.0 = only the target floor is rendered.
+    void setFloorSeparatorOpacity(float opacity)
+    {
+        opacity = std::clamp(opacity, 0.0f, 1.0f);
+        if (m_floorSeparatorOpacity == opacity)
+            return;
+        m_floorSeparatorOpacity = opacity;
+        repaint();
+    }
+    float getFloorSeparatorOpacity() const { return m_floorSeparatorOpacity; }
+
     // Static Map View mode — when enabled, drawSelf() uses pre-built minimap-* image
     // chunks (from SatelliteMap) for Map View instead of the live in-game minimap.
     // Falls back to the live minimap when no static chunks exist for the current floor.
@@ -92,4 +104,5 @@ private:
     int8_t m_maxZoom{ 5 };
     bool m_satelliteMode{ false };
     bool m_useStaticMinimap{ false };
+    float m_floorSeparatorOpacity{ 1.0f };
 };

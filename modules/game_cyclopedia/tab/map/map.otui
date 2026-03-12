@@ -104,9 +104,6 @@ UIWidget
             icon-clip: 99 0 11 11
             @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
           CheckBoxButton
-            id: 12
-            icon: /game_cyclopedia/images/icon-map-passage-idle
-          CheckBoxButton
             id: 10
             icon: /game_cyclopedia/images/markers
             icon-clip: 110 0 11 11
@@ -118,9 +115,7 @@ UIWidget
             @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
           CheckBoxButton
             id: 12
-            icon: /game_cyclopedia/images/markers
-            icon-clip: 132 0 11 11
-            @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+            icon: /game_cyclopedia/images/icon-map-passage-idle
           CheckBoxButton
             id: 13
             icon: /game_cyclopedia/images/markers
@@ -217,7 +212,9 @@ UIWidget
             anchors.bottom: SeparatorScroll.top
             margin-bottom: 4
             !text: tr('Level separator')
-            color: #767676
+            color: #dfdfdf
+            $disabled:
+              color: #767676
           HorizontalScrollBar
             id: SeparatorScroll
             anchors.left: MapCheck.left
@@ -225,7 +222,9 @@ UIWidget
             anchors.bottom: parent.bottom
             margin-right: 7
             margin-bottom: 5
-            enabled: false
+            minimum: 0
+            maximum: 100
+            value: 100
       UIWidget
         id: NavigationBase
         height: 108
@@ -413,7 +412,7 @@ UIWidget
           image-source: /images/automap/automap_buttons
           image-clip: 0 20 20 20
           size: 20 20
-          @onClick: modules.game_cyclopedia.Cyclopedia.setZooom(false)
+          @onClick: modules.game_cyclopedia.Cyclopedia.setZoom(false)
           $pressed:
             image-clip: 20 20 20 20
         UIWidget
@@ -424,7 +423,7 @@ UIWidget
           margin-top: 5
           image-source: /images/automap/automap_buttons
           image-clip: 0 40 20 20
-          @onClick: modules.game_cyclopedia.Cyclopedia.setZooom(true)
+          @onClick: modules.game_cyclopedia.Cyclopedia.setZoom(true)
           $pressed:
             image-clip: 20 40 20 20
 

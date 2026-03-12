@@ -59,7 +59,9 @@ public:
     // Draws the satellite layer for cameraPos.z onto screenRect.
     // Automatically selects the best LOD for the current scale.
     // Chunks are loaded from disk on first use and cached.
-    void draw(const Rect& screenRect, const Position& cameraPos, float scale, const Color& color);
+    // floorSeparatorOpacity: 1.0 = all composite floors fully visible (default),
+    //                        0.0 = only the target floor is rendered.
+    void draw(const Rect& screenRect, const Position& cameraPos, float scale, const Color& color, float floorSeparatorOpacity = 1.0f);
 
     // Returns true if at least one satellite chunk exists for the given floor.
     bool hasChunksForFloor(int floor) const;

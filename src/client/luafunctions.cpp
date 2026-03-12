@@ -1202,6 +1202,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMinimap>("setUseStaticMinimap", &UIMinimap::setUseStaticMinimap);
     g_lua.bindClassMemberFunction<UIMinimap>("isUseStaticMinimap", &UIMinimap::isUseStaticMinimap);
     g_lua.bindClassMemberFunction<UIMinimap>("isSatelliteMode", &UIMinimap::isSatelliteMode);
+    g_lua.bindClassMemberFunction<UIMinimap>("setFloorSeparatorOpacity", &UIMinimap::setFloorSeparatorOpacity);
+    g_lua.bindClassMemberFunction<UIMinimap>("getFloorSeparatorOpacity", &UIMinimap::getFloorSeparatorOpacity);
 
     g_lua.registerClass<UIProgressRect, UIWidget>();
     g_lua.bindClassStaticFunction<UIProgressRect>("create", [] { return std::make_shared<UIProgressRect>(); });

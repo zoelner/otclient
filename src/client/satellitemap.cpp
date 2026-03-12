@@ -22,6 +22,7 @@
 
 #include "satellitemap.h"
 
+#include "gameconfig.h"
 #include <framework/core/logger.h>
 #include <framework/core/resourcemanager.h>
 #include <framework/graphics/drawpoolmanager.h>
@@ -70,7 +71,7 @@ int SatelliteMap::loadFloors(const std::string& dir, const int floorMin, const i
     }
 
     if (count > 0)
-        g_logger.info("SatelliteMap: indexed {} chunks (floors {}-{}) from '{}'", count, floorMin, floorMax, dir);
+        g_logger.debug("SatelliteMap: indexed {} chunks (floors {}-{}) from '{}'", count, floorMin, floorMax, dir);
 
     return count;
 }
@@ -109,7 +110,7 @@ void SatelliteMap::buildFileCache(const std::string& dir)
         m_fileCache.push_back({ { lod, posX, posY, floor }, dir + "/" + name, p == PREFIX_SATELLITE });
     }
 
-    g_logger.info("SatelliteMap: scanned {} chunk files from '{}'", m_fileCache.size(), dir);
+    g_logger.debug("SatelliteMap: scanned {} chunk files from '{}'", m_fileCache.size(), dir);
 }
 
 void SatelliteMap::clear()
@@ -122,16 +123,16 @@ void SatelliteMap::clear()
     m_fileCacheDir.clear();
 }
 
-void SatelliteMap::draw(const Rect& screenRect, const Position& cameraPos, float scale, const Color& color)
+void SatelliteMap::draw(const Rect& screenRect, const Position& cameraPos, float scale, const Color& color, float floorSeparatorOpacity)
 {
     if (screenRect.isEmpty() || m_chunks.empty())
         return;
 
     const auto oldClipRect = g_drawPool.getClipRect();
     g_drawPool.setClipRect(screenRect);
-
-    // Black background
-    g_drawPool.addFilledRect(screenRect, Color::black);
+    
+    // Water background only for floor 7 (sea floor). All other floors use black.
+    g_drawPool.addFilledRect(screenRect, cameraPos.z == g_gameConfig.getMapSeaFloor() ? Color(0xFFA54C27U) : Color::black);
 
     const Point screenCenter = screenRect.center();
 
@@ -145,6 +146,20 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& cameraPos, float
     const int coarserLod = (bestLod == 16) ? 32 : 64;
 
     for (int floor = SURFACE_FLOOR; floor >= targetFloor; --floor) {
+        // Target floor is always fully opaque.
+        // Background floors (floor 7 and intermediaries) use floorSeparatorOpacity:
+        //   0.0 = hidden → only target floor visible
+        //   1.0 = fully opaque → full composite view (target + background)
+        const bool isTargetFloor = (floor == targetFloor);
+        const bool applyOpacity  = !isTargetFloor;
+
+        if (applyOpacity) {
+            if (floorSeparatorOpacity <= 0.0f)
+                continue;
+            if (floorSeparatorOpacity < 1.0f)
+                g_drawPool.setOpacity(floorSeparatorOpacity);
+        }
+
         for (const int lod : { coarserLod, bestLod }) {
             const int indexKey = floor * 100 + lod;
             const auto it = m_index.find(indexKey);
@@ -185,8 +200,10 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& cameraPos, float
                 g_drawPool.addTexturedRect(dest, info.texture, Rect(0, 0, 512, 512));
             }
         }
-    }
 
+        if (applyOpacity && floorSeparatorOpacity < 1.0f)
+            g_drawPool.resetOpacity();
+    }
     g_drawPool.setClipRect(oldClipRect);
 }
 
@@ -198,7 +215,7 @@ void SatelliteMap::drawStaticMinimap(const Rect& screenRect, const Position& cam
     const auto oldClipRect = g_drawPool.getClipRect();
     g_drawPool.setClipRect(screenRect);
 
-    g_drawPool.addFilledRect(screenRect, Color::black);
+    g_drawPool.addFilledRect(screenRect, cameraPos.z == g_gameConfig.getMapSeaFloor() ? Color(0xFFA54C27U) : Color::black);
 
     const Point screenCenter = screenRect.center();
     const int floor = cameraPos.z;

@@ -2,11 +2,14 @@ local UI = nil
 local virtualFloor = 7
 local viewRadioGroup = nil
 local loadedAssetsDir = nil
-local loadedFloorSet  = {}  -- floors already indexed for loadedAssetsDir
+local loadedFloorSet = {} -- floors already indexed for loadedAssetsDir
+
+-- Forward declaration — defined later in the file.
+local refreshVirtualFloors
 
 -- Surface View is only available for floors 0-7 (surface and above).
 -- Underground floors (8-15) always use Map View.
-local SURFACE_MAX_FLOOR = 7
+local SEA_FLOOR = 7
 
 local function ensureViewFloorsLoaded()
     local assetsDir = string.format("/data/things/%d", g_game.getClientVersion())
@@ -14,18 +17,20 @@ local function ensureViewFloorsLoaded()
     -- Reset when switching game versions
     if assetsDir ~= loadedAssetsDir then
         g_satelliteMap.clear()
-        loadedFloorSet  = {}
+        loadedFloorSet = {}
         loadedAssetsDir = assetsDir
     end
 
-    -- For surface floors: composite view needs [virtualFloor, SURFACE_MAX_FLOOR].
+    -- For surface floors: composite view needs [virtualFloor, SEA_FLOOR].
     -- For underground: only the current floor is needed (static minimap, map view only).
-    local floorMax = (virtualFloor <= SURFACE_MAX_FLOOR) and SURFACE_MAX_FLOOR or virtualFloor
+    local floorMax = (virtualFloor <= SEA_FLOOR) and SEA_FLOOR or virtualFloor
 
     local minNeeded, maxNeeded
     for f = virtualFloor, floorMax do
         if not loadedFloorSet[f] then
-            if not minNeeded then minNeeded = f end
+            if not minNeeded then
+                minNeeded = f
+            end
             maxNeeded = f
         end
     end
@@ -39,18 +44,21 @@ local function ensureViewFloorsLoaded()
 end
 
 local function isSurfaceFloor(floor)
-    return floor <= SURFACE_MAX_FLOOR
+    return floor <= SEA_FLOOR
 end
 
 local function updateViewMode()
-    if not UI or not viewRadioGroup then return end
+    if not UI or not viewRadioGroup then
+        return
+    end
 
     local minimapWidget = UI.MapBase.minimap
-    local viewBase      = UI.InformationBase.InternalBase.DisplayBase.ViewBase1
-    local surfaceCheck  = viewBase.SurfaceCheck
+    local viewBase = UI.InformationBase.InternalBase.DisplayBase.ViewBase1
+    local surfaceCheck = viewBase.SurfaceCheck
+    local separatorScroll = viewBase.SeparatorScroll
+    local separatorLabel = viewBase.SeparatorLabel
 
-    local canUseSurface = isSurfaceFloor(virtualFloor)
-                          and g_satelliteMap.hasChunksForView(virtualFloor)
+    local canUseSurface = isSurfaceFloor(virtualFloor) and g_satelliteMap.hasChunksForView(virtualFloor)
 
     -- Underground: force Map View and lock the Surface option.
     -- selectWidget must come BEFORE setEnabled: UIRadioGroup calls setChecked(false)
@@ -59,6 +67,12 @@ local function updateViewMode()
         viewRadioGroup:selectWidget(viewBase.MapCheck)
     end
     surfaceCheck:setEnabled(canUseSurface)
+
+    -- Level separator scroll is only meaningful in Surface View on floors above z7 (z < 7).
+    -- At z7 itself the composite has no lower floor to blend with, so the scroll is unused.
+    local inSurfaceMode = canUseSurface and surfaceCheck:isChecked() and virtualFloor < SEA_FLOOR
+    separatorScroll:setEnabled(inSurfaceMode)
+    separatorLabel:setEnabled(inSurfaceMode)
 end
 
 function showMap()
@@ -69,7 +83,6 @@ function showMap()
         onPositionChange = Cyclopedia.onUpdateCameraPosition
     }):execute()
 
-    Cyclopedia.prevFloor = 7
     Cyclopedia.loadMap()
 
     controllerCyclopedia.ui.CharmsBase:setVisible(false)
@@ -81,21 +94,23 @@ function showMap()
 end
 
 function Cyclopedia.loadMap()
-    local clientVersion  = g_game.getClientVersion()
-    local minimapWidget  = UI.MapBase.minimap
+    local clientVersion = g_game.getClientVersion()
+    local minimapWidget = UI.MapBase.minimap
 
     -- Prime virtualFloor from current player position before any floor-dependent logic
     local player = g_game.getLocalPlayer()
     if player then
         local pos = player:getPosition()
-        if pos then virtualFloor = pos.z end
+        if pos then
+            virtualFloor = pos.z
+        end
     end
 
     g_minimap.clean()
 
     local loaded = false
-    local minimapFile          = "/minimap.otmm"
-    local dataMinimapFile      = "/data" .. minimapFile
+    local minimapFile = "/minimap.otmm"
+    local dataMinimapFile = "/data" .. minimapFile
     local versionedMinimapFile = "/minimap" .. clientVersion .. ".otmm"
 
     if g_resources.fileExists(dataMinimapFile) then
@@ -129,7 +144,7 @@ function Cyclopedia.loadMap()
     -- Views panel is always visible; satellite chunks determine whether Surface View is enabled.
     local viewBase = UI.InformationBase.InternalBase.DisplayBase.ViewBase1
     local surfaceCheck = viewBase.SurfaceCheck
-    local mapCheck     = viewBase.MapCheck
+    local mapCheck = viewBase.MapCheck
 
     -- Clean up previous radio group if the map tab was reopened
     if viewRadioGroup then
@@ -142,22 +157,34 @@ function Cyclopedia.loadMap()
     viewRadioGroup:addWidget(mapCheck)
 
     viewRadioGroup.onSelectionChange = function(self, selected)
-        minimapWidget:setSatelliteMode(
-            selected == surfaceCheck
-            and isSurfaceFloor(virtualFloor)
-            and g_satelliteMap.hasChunksForView(virtualFloor)
-        )
+        local inSurface = selected == surfaceCheck and isSurfaceFloor(virtualFloor) and
+                              g_satelliteMap.hasChunksForView(virtualFloor)
+        minimapWidget:setSatelliteMode(inSurface)
+
+        -- Sync separator scroll enabled state (only for floors above z7)
+        local separatorScroll = viewBase.SeparatorScroll
+        local separatorLabel = viewBase.SeparatorLabel
+        local canUseSeparator = inSurface and virtualFloor < SEA_FLOOR
+        separatorScroll:setEnabled(canUseSeparator)
+        separatorLabel:setEnabled(canUseSeparator)
     end
 
     -- Default: Surface View when satellite data exists and on a surface floor, else Map View
-    viewRadioGroup:selectWidget(
-        (chunkCount > 0 and isSurfaceFloor(virtualFloor)) and surfaceCheck or mapCheck
-    )
+    viewRadioGroup:selectWidget((chunkCount > 0 and isSurfaceFloor(virtualFloor)) and surfaceCheck or mapCheck)
+
+    -- Hook separator scroll: adjusts floor compositing opacity (1.0 = all visible, 0.0 = target only)
+    local separatorScroll = viewBase.SeparatorScroll
+    separatorScroll.onValueChange = function(self, value)
+        minimapWidget:setFloorSeparatorOpacity(value / 100.0)
+    end
+    -- Reset opacity on (re-)open
+    minimapWidget:setFloorSeparatorOpacity(separatorScroll:getValue() / 100.0)
 
     updateViewMode()
 
     -- Sync flags from main minimap's live table (avoids stale g_settings on first open).
-    local mainMinimap = modules.game_minimap and modules.game_minimap.getMiniMapUi and modules.game_minimap.getMiniMapUi()
+    local mainMinimap = modules.game_minimap and modules.game_minimap.getMiniMapUi and
+                            modules.game_minimap.getMiniMapUi()
     if mainMinimap then
         for _, flag in pairs(mainMinimap.flags) do
             if not minimapWidget:getFlag(flag.pos) then
@@ -172,11 +199,15 @@ function Cyclopedia.loadMap()
         local btn = markList:getChildById(tostring(flag.icon))
         flag:setVisible(btn ~= nil and btn:isChecked())
     end
+
+    refreshVirtualFloors()
 end
 
 function Cyclopedia.toggleMapFlag(widget, checked)
     local flagType = tonumber(widget:getId())
-    if not flagType then return end
+    if not flagType then
+        return
+    end
     local minimapWidget = UI.MapBase.minimap
     for _, flag in pairs(minimapWidget.flags) do
         if flag.icon == flagType then
@@ -189,7 +220,9 @@ function Cyclopedia.showAllFlags(checked)
     local list = UI.InformationBase.InternalBase.DisplayBase.MarkList
     for i = 0, list:getChildCount() - 1 do
         local btn = list:getChildByIndex(i)
-        if btn then btn:setChecked(checked) end
+        if btn then
+            btn:setChecked(checked)
+        end
     end
     local minimapWidget = UI.MapBase.minimap
     for _, flag in pairs(minimapWidget.flags) do
@@ -245,9 +278,24 @@ function ConvertLayer(Value)
     end
 end
 
-local function refreshVirtualFloors()
-    UI.InformationBase.InternalBase.NavigationBase.layersMark:setMarginTop(((virtualFloor + 1) * 4) - 3)
+refreshVirtualFloors = function()
+    local mark = UI.InformationBase.InternalBase.NavigationBase.layersMark
+    mark:setMarginTop(((virtualFloor + 1) * 4) - 3)
     UI.InformationBase.InternalBase.NavigationBase.automapLayers:setImageClip((virtualFloor * 14) .. ' 0 14 67')
+
+    -- Update player marker (cross) visibility on the minimap
+    local cross = UI.MapBase.minimap.cross
+    if cross then
+        if virtualFloor > SEA_FLOOR then
+            cross:setVisible(false)
+        elseif virtualFloor < SEA_FLOOR then
+            cross:setVisible(true)
+            cross:setIconColor("#ffffff80")
+        else
+            cross:setVisible(true)
+            cross:setIconColor("#ffffffff")
+        end
+    end
 end
 
 function Cyclopedia.onUpdateCameraPosition()

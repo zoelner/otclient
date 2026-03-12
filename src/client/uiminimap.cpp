@@ -39,7 +39,7 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
         m_layout = std::make_shared<UIMapAnchorLayout>(static_self_cast<UIWidget>());
 
     if (m_satelliteMode && g_satelliteMap.hasChunksForView(m_cameraPosition.z))
-        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color);
+        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_floorSeparatorOpacity);
     else if (m_useStaticMinimap && g_satelliteMap.hasMinimapChunksForFloor(m_cameraPosition.z))
         g_satelliteMap.drawStaticMinimap(getPaddingRect(), m_cameraPosition, m_scale, m_color);
     else
