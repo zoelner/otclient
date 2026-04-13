@@ -1573,8 +1573,12 @@ function stashItem(item)
             item:getStackPos(), 0)
         return
     end
-    if countWindow and not countWindow:isDestroyed() then
-        return
+    if countWindow then
+        if countWindow:isDestroyed() then
+            countWindow = nil
+        else
+            return
+        end
     end
     countWindow = g_ui.createWidget('CountStashWindow', rootWidget)
 
